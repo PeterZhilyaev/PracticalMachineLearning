@@ -1,0 +1,54 @@
+---
+title: "Course Project (Practicale Machine Learning)"
+author: "Peter Zhilyaev"
+date: "14 февраля 2016 г."
+output: html_document
+---
+
+## Preparing Data
+
+Download data from server:
+
+```{r}
+urlTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(urlTrain, destfile='pml-training.csv')
+download.file(urlTest, destfile='pml-testing.csv')
+```
+
+Reading training data from files and creating dlyr data frames:
+```{r}
+library(dplyr)
+dataTrain <- read.csv2('pml-training.csv', sep=',', dec=".")
+training <- tbl_df(dataTrain)
+```
+
+Removing NA's from training data frame:
+```{r}
+training <- training[, colMeans(is.na(training)) == 0]
+training$X <- NULL
+```
+
+
+
+Training data with radom forest. Initial size was too big, so I use just 4000 records from original data:
+```{r}
+library(caret)
+training <- training[, -c(11:19, 42:47, 51:59, 73:81)]
+trainingSmall <- sample_n(training, 4000)
+rfFit <- train(classe ~ ., trainingSmall, method="rf", preProcess=c("pca", "scale", "center"), trControl=trainControl(method="cv"))
+rfFit
+```
+
+
+Predicting data from testing file:
+```{r}
+dataTest <- read.csv2('pml-testing.csv', sep=',', dec=".", stringsAsFactors=FALSE)
+testing <- tbl_df(dataTest)
+testing <- testing[,names(training)[-59]]
+toChange <- c("roll_belt", "pitch_belt", "yaw_belt", "gyros_belt_x", "gyros_belt_y", "gyros_belt_z", "roll_arm", "pitch_arm", "yaw_arm", "gyros_arm_x", "gyros_arm_y", "gyros_arm_z", "roll_dumbbell", "pitch_dumbbell", "yaw_dumbbell", "gyros_dumbbell_x", "gyros_dumbbell_y", "gyros_dumbbell_z", "roll_forearm", "pitch_forearm", "yaw_forearm", "gyros_forearm_x", "gyros_forearm_y", "gyros_forearm_z")
+testing[,toChange] <- sapply(testing[,toChange], function(x)as.numeric(as.character(x)))
+
+predict(rfFit, testing)
+```
